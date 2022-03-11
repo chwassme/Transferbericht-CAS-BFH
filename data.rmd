@@ -1,0 +1,90 @@
+---
+title: "Transferbericht 'Verkehr und Umwelt'"
+output: html_document
+---
+
+```{r warning = FALSE, message=FALSE, echo=FALSE}
+library(magrittr)
+library(dplyr)
+```
+
+# Datenquellen
+
+## Motorisierter Individualverkehr
+- https://data.stadt-zuerich.ch/dataset/sid_dav_verkehrszaehlung_miv_od2031
+
+Die hier verfügbaren Datensätze beinhalten die täglich aktualisierten Messwerte zum motorisierten Individualverkehr (MIV) in der Stadt Zürich, welche von den zahlreichen Zählstellen der Dienstabteilung Verkehr (DAV) gemessen wurden.
+
+Die Aktualisierung beinhaltet jeweils die Daten von vorgestern (z.B. am 17.1.2021 werden die Daten bis und mit dem vollendeten 15.1.2021 geliefert). Bis spätestens 08:00 Uhr sind die neuesten Daten verfügbar.
+
+Zu einer Messstelle gehören mehrere Zählstellen, welche wiederum Messungen mit sogenannten Detektoren vornehmen. In den vorliegenden Datensätzen sind die Messwerte pro Zählstelle enthalten. Für jede Zählstelle gibt es einen detaillierten PDF-Situationsplan in der Datei "Zaehlstellen_Detail.zip", welcher u.a. die genaue Lage der Detektoren anzeigt.
+
+## Fussgänger und Veloverkehr
+- https://data.stadt-zuerich.ch/dataset/ted_taz_verkehrszaehlungen_werte_fussgaenger_velo
+
+Die täglich aktalisierten **Zähldaten** werden vom Tiefbauamt der Stadt Zürich in eigener Regie erhoben. Die Zählstellen sind über das Stadtgebiet verteilt. Die Standorte sind auch über das [Geodatenportal](https://www.stadt-zuerich.ch/geodaten/download/Standorte_der_automatischen_Fuss__und_Velozaehlungen) erhältlich und können über das Attribut FK_ZAEHLER in Beziehung gesetzt werden. Die Erfassung des **Veloverkehrs** erfolgt mittels im Strassenbelag eingelassenen **Induktionsschlaufen**. Der **Fussverkehr** wird durch **passive Infrarotstrahlung** gezählt.
+
+## Meteodaten
+- https://data.stadt-zuerich.ch/dataset/ugz_meteodaten_stundenmittelwerte
+
+Der Datensatz umfasst Stundenwerte ab 1992 bis zur letzten aktuellen Stunde aufgeteilt in Jahresdateien. Darin enthalten sind die Stationen Stampfenbachstrasse, Schimmelstrasse und Rosengartenstrasse. Gemessen wird der Luftdruck (p), die Niederschlagsdauer (RainDur), die Globalstrahlung (StrGlo), die Temperatur (T), die relative Luftfeuchtigkeit (Hr), die Windrichtung, die Vektor und Skalar Windgeschwindigkeit. Vor 2018 sind die Skalar Windgeschwindigkeiten aus den 30 Minuten Vektor Daten gerechnet worden.
+s
+Die Stundenwerte des laufenden Jahres werden jeweils 30 Minuten nach der vollen Stunde aktualisiert.
+
+## Luftqualität
+- https://data.stadt-zuerich.ch/dataset/ugz_luftschadstoffmessung_stundenwerte
+
+Dieses Dataset umfasst Stundenmesswerte seit 1983 bis zur letzten aktuellen Stunde, aufgeteilt in Jahresdateien. Darin enthalten sind die Stundenmittelwerte des entsprechenden Jahres für die Stationen Stampfenbachstrasse, Schimmelstrasse, Rosengartenstrasse und Heubeeribüel. Gemessen wird Ozon (O3), Stickoxide (NOx), Stickstoffmonoxid (NO), Stickstoffdioxid (NO2), Feinstaub (PM10 und PM2.5), Kohlenmonoxid (CO) und Schwefeldioxid (SO2) wo jeweils in genügender Qualität vorhanden.
+
+Die Stundenmittelwerte des laufenden Jahres werden jeweils 30 Minuten nach der vollen Stunde aktualisiert.
+
+
+## Unfall
+- https://opendata.swiss/de/dataset/polizeilich-registrierte-verkehrsunfalle-im-kanton-zurich
+
+Die Verkehrsunfallstatistik des Kantons Zürich (VUSTA) enthält die Strassenverkehrsunfälle mit Personen- und Sachschäden, die durch die Kantonspolizei Zürich, die Dienstabteilung Verkehr der Stadt Zürich sowie die Stadtpolizei Winterthur registriert wurden. Sie wird einmal jährlich aktualisiert, jeweils gegen Ende des ersten Quartals des Folgejahres.
+
+
+# Datensichtung
+
+```{r}
+basedir <- '/Users/chwassme/Dropbox/dev/edu.self/cas/010_Kurse/005-LinReg/Transferbericht/R/data/';
+# Datum wird nicht als Date oder POSIXct erkaennt (Zeit wird abgeschnitten)
+
+# Motorisierter Verkehr
+trafficMotor <- paste0(basedir, 'sid_dav_verkehrszaehlung_miv_OD2031_2021.csv');
+rawTrafficMotor <- read.csv(trafficMotor, header = TRUE, stringsAsFactors = TRUE, colClasses = c("MessungDatZeit"="character", "LieferDat"="character"))
+str(rawTrafficMotor)
+summary(rawTrafficMotor)
+head(rawTrafficMotor, 10)
+
+# Fussgaenger/Velo
+trafficPedBike <- paste0(basedir, '2021_verkehrszaehlungen_werte_fussgaenger_velo.csv')
+rawTrafficPedBike <- read.csv(trafficPedBike, header = TRUE, stringsAsFactors = TRUE, colClasses = c("DATUM"="character"))
+str(rawTrafficPedBike)
+summary(rawTrafficPedBike)
+head(rawTrafficMotor, 10)
+
+# Meteo
+meteo <- paste0(basedir, 'ugz_ogd_meteo_h1_2021.csv')
+rawMeteo <- read.csv(meteo, header = TRUE, stringsAsFactors = TRUE, colClasses = c("Datum"="character"))
+str(rawMeteo)
+summary(rawMeteo)
+head(rawMeteo, 10)
+
+# Luftqualitaet
+air <- paste0(basedir, 'ugz_ogd_air_h1_2021.csv')
+rawAir <- read.csv(air, header = TRUE, stringsAsFactors = TRUE, colClasses = c("Datum"="character"))
+str(rawAir)
+summary(rawAir)
+head(rawAir, 10)
+
+# Unfall
+accidents <- paste0(basedir, 'KTZH_00000718_00001783.csv')
+rawAccident <- read.csv(accidents, header = TRUE, sep = ';', stringsAsFactors = TRUE, colClasses = c("AccidentUID" = "character"))
+str(rawAccident)
+summary(rawAccident)
+head(rawAccident, 10)
+
+
+```
