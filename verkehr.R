@@ -2,6 +2,9 @@ library(magrittr)
 library(dplyr)
 library(lubridate)
 library(tidyr)
+library(stargazer)
+library(car)
+library(moments)
 
 basedir <- '/Users/chwassme/Dropbox/dev/edu.self/cas/010_Kurse/005-LinReg/Transferbericht/data/';
 # Datum wird nicht als Date oder POSIXct erkannt (Zeit wird abgeschnitten)
@@ -69,17 +72,20 @@ head(trafficMotor)
 lmTrafficMotorByMSID <- lm(Z001M001 ~ ., trafficMotorByMSID %>% select(-MDateTime))
 summary(lmTrafficMotorByMSID)
 
+layout(matrix(1:4, 2, 2))  # zusammen mit plot ausführen
+plot(lmTrafficMotorByMSID)
+qqPlot(summary(lmTrafficMotorByMSID)$residuals)
+jarque.test(summary(lmTrafficMotorByMSID)$residuals)
+
 dim(trafficMotorValid)
 dim(trafficMotor)
 
-c(validMSIDs[validMSIDs=='Z057M002'])
+c(validMSIDs[validMSIDs == 'Z057M002'])
 
 ### next steps
 # - Daten nach MSID filtern
 # - pivot_wide MSID
 # - lm(MSID)
-mtcars %>%
-  filter(cyl %in% c(4, 6))
 
 
 # Fussgaenger/Velo
@@ -95,6 +101,7 @@ rawMeteo <- read.csv(meteoFile, header = TRUE, stringsAsFactors = TRUE, colClass
 str(rawMeteo)
 summary(rawMeteo)
 head(rawMeteo, 10)
+unique(rawMeteo$Parameter)
 
 # Luftqualitaet
 airFile <- paste0(basedir, 'ugz_ogd_air_h1_2021.csv')
@@ -102,6 +109,7 @@ rawAir <- read.csv(airFile, header = TRUE, stringsAsFactors = TRUE, colClasses =
 str(rawAir)
 summary(rawAir)
 head(rawAir, 10)
+unique(rawAir$Parameter)
 
 # Unfall
 accidentsFile <- paste0(basedir, 'KTZH_00000718_00001783.csv')
@@ -109,3 +117,56 @@ rawAccident <- read.csv(accidentsFile, header = TRUE, sep = ';', stringsAsFactor
 str(rawAccident)
 summary(rawAccident)
 head(rawAccident, 10)
+nrow(rawAccident) # 147971
+
+
+accidentData <- rawAccident %>%
+  select(AccidentUID, AccidentType, AccidentSeverityCategory, RoadType, MunicipalityCode, AccidentYear, AccidentMonth, AccidentWeekDay, AccidentHour) %>%
+  mutate(YearMonth = paste(AccidentYear,sprintf("%02.f", AccidentMonth), sep = '-'))
+
+head(accidentData)
+
+accidentData %>%
+    pivot_wider(names_from = AccidentType, values_from = gr, values_fill = 0, id_cols = c(MDateTime))
+
+table(accidentData$AccidentMonth, accidentData$AccidentHour)
+
+
+# circa 1000 Unfaelle pro Monat, Total 150k
+accidentByMonth <- rawAccident %>%
+  group_by(AccidentYear, AccidentMonth) %>%
+  summarise(TotalAccidents = n())
+accidentByMonth
+View(accidentByMonth)
+
+mtcars
+
+#  Unfall mit Sachschaden
+#  Unfall mit Leichtverletzten
+#  Unfall mit Schwerverletzten
+#  Unfall mit Getöteten
+unique(rawAccident$AccidentSeverityCategory_de)
+
+# [1] Schleuder- oder Selbstunfall           Überqueren der Fahrbahn                Abbiegeunfall
+# [4] Auffahrunfall                          Parkierunfall                          Überholunfall oder Fahrstreifenwechsel
+# [7] Fussgängerunfall                       Einbiegeunfall                         Tierunfall
+# [10] Andere                                Frontalkollision
+unique(rawAccident$AccidentType_de)
+
+# Hauptstrasse
+# Nebenstrasse
+# Autobahn
+# andere
+# Autostrasse
+# Nebenanlage
+unique(rawAccident$RoadType_de)
+
+#AccidentInvolvingPedestrian, AccidentInvolvingBicycle, AccidentInvolvingMotorcycle
+
+# Gemeindedaten
+communeFile <- paste0(basedir, 'gemeindedaten.csv')
+communeRaw <- read.csv(communeFile, encoding = "UTF-8", na.strings = c("*", NA)) %>% # mark missing values as NA (instead of '*')
+  rename_with(., ~gsub("\\.", "", .x))
+str(communeRaw)
+summary(communeRaw)
+head(communeRaw, 10)
