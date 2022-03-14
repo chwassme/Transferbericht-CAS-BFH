@@ -34,6 +34,9 @@ async function main() {
     ];
     const heartRateData = [heartRateKeys.join(';')];
 
+    const stepsKeys = ['startGMT', 'endGMT', 'steps', 'primaryActivityLevel', 'activityLevelConstant'];
+    const stepsData = [stepsKeys.join(';')];
+
     while (currentDate.isBefore(endDate) || currentDate.isSame(endDate)) {
         const curDate = currentDate.toDate();
 
@@ -47,27 +50,24 @@ async function main() {
         const heartRate = await GCClient.getHeartRate(curDate);
         heartRateData.push(heartRateKeys.map(key => heartRate[key]).join(';'));
 
-        // {
-        //   "startGMT": "2022-03-10T07:45:00.0",
-        //   "endGMT": "2022-03-10T08:00:00.0",
-        //   "steps": 0,
-        //   "primaryActivityLevel": "sedentary", // sedentary, sleeping, active, generic, none, highlyActive, ...
-        //   "activityLevelConstant": true
-        // }
         const steps = await GCClient.getSteps(curDate);
-
+        steps.forEach(stepData => {
+            stepsData.push(stepsKeys.map(key => stepData[key]).join(';'));
+        });
 
         console.log(curDate, sleep.id, sleep.deepSleepSeconds, steps.length, heartRate.restingHeartRate)
 
         currentDate = currentDate.add(1, "days");
     }
-
-
-    fs.writeFileSync('data/sleep.csv', sleepData.join('\n'), {flag: 'w'}, err => {
-        console.error(err)
-    })
-
-    fs.writeFileSync('data/heartrate.csv', heartRateData.join('\n'), {flag: 'w'}, err => {
-        console.error(err)
-    })
+    writeFile('sleep', sleepData);
+    writeFile('heartrate', heartRateData);
+    writeFile('steps', stepsData);
 }
+
+function writeFile(name, data) {
+    const fileName = 'data/' + name + '.csv';
+    fs.writeFileSync(fileName, data.join('\n'), {flag: 'w'}, err => {
+        console.error(err)
+    });
+}
+
