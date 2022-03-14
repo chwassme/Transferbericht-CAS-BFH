@@ -81,7 +81,7 @@ async function main() {
     // stairs
     const metricStairs = await GCClient.getMetric(startDate, endDate, 53);
     const metricStairsData = [
-        'calendarDate;value',
+        'calendarDate;nrOfFloorsClimbed',
         ...metricStairs.allMetrics.metricsMap.WELLNESS_FLOORS_ASCENDED.map(value => [value.calendarDate, value.value].join(';'))
     ];
     writeFile('stairs', metricStairsData);
