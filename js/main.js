@@ -1,12 +1,16 @@
 main();
 
+
+import dayjs from "dayjs";
+import storage from "node-persist";
+import { GarminConnect } from 'garmin-connect';
+
+
 async function main() {
-    const storage = require('node-persist');
     await storage.init();
     const session = await storage.getItem('session');
 
     // Create a new Garmin Connect Client
-    const { GarminConnect } = require('garmin-connect');
     const GCClient = new GarminConnect();
 
     GCClient.restore(session);
@@ -14,6 +18,8 @@ async function main() {
     GCClient.onSessionChange(async session => {
         await storage.setItem('session', session)
     });
+
+    dayjs('2018-08-08');
 
     const data = await GCClient.getSleep();
     console.log(data)
