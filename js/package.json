@@ -1,0 +1,10 @@
+{
+  "name": "garmin-test",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {},
+  "dependencies": {
+    "garmin-connect": "^1.4.2",
+    "node-persist": "^3.1.0"
+  }
+}
