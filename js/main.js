@@ -1,9 +1,8 @@
-main();
-
-
 import dayjs from "dayjs";
 import storage from "node-persist";
-import { GarminConnect } from 'garmin-connect';
+import {GarminConnect} from 'garmin-connect';
+
+main();
 
 
 async function main() {
@@ -19,9 +18,14 @@ async function main() {
         await storage.setItem('session', session)
     });
 
-    dayjs('2018-08-08');
+    const startDate = new Date(2022, 2, 10);
+    const endDate = new Date(2022, 2, 14);
 
-    const data = await GCClient.getSleep();
-    console.log(data)
+    let currentDate = dayjs(startDate);
 
+    while (currentDate.isBefore(endDate) || currentDate.isSame(endDate)) {
+        currentDate = currentDate.add(1, "days");
+        const sleep = await GCClient.getSleep(currentDate.toDate());
+        console.log(sleep.id, sleep.deepSleepSeconds)
+    }
 }
