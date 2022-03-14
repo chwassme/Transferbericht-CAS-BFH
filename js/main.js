@@ -20,7 +20,7 @@ async function main() {
     });
 
     const startDate = new Date(2021, 4, 20);
-    const endDate = new Date(2021, 4, 20);
+    const endDate = new Date(2022, 2, 14);
 
     let currentDate = dayjs(startDate);
     const sleepData = [];
@@ -71,11 +71,21 @@ async function main() {
 
         currentDate = currentDate.add(1, "days");
     }
+
     writeFile('sleep', sleepData);
     writeFile('heartrate', heartRateData);
     writeFile('steps', stepsData);
     writeFile('stress', stressData);
     writeFile('stressvalues', stressValues);
+
+    // stairs
+    const metricStairs = await GCClient.getMetric(startDate, endDate, 53);
+    const metricStairsData = [
+        'calendarDate;value',
+        ...metricStairs.allMetrics.metricsMap.WELLNESS_FLOORS_ASCENDED.map(value => [value.calendarDate, value.value].join(';'))
+    ];
+    writeFile('stairs', metricStairsData);
+
 }
 
 function writeFile(name, data) {
@@ -87,14 +97,20 @@ function writeFile(name, data) {
 
 class GarminConnect2 extends GarminConnect {
 
+    static BASE_URL = 'https://connect.garmin.com/modern/proxy/';
+
     async getStress(date = new Date()) {
         const dateString = toDateString(date);
-        const url = 'https://connect.garmin.com/modern/proxy/wellness-service/wellness/dailyStress/' + dateString;
+        const url = GarminConnect2.BASE_URL + 'wellness-service/wellness/dailyStress/' + dateString;
         return this.get(url, { date: dateString });
+    }
+
+    async getMetric(from, until, metricId) {
+        // https://connect.garmin.com/modern/proxy/userstats-service/wellness/daily/chregi23?fromDate=2022-03-06&untilDate=2022-03-12&metricId=53
+        const fromString = toDateString(from);
+        const untilString = toDateString(until);
+        const url = GarminConnect2.BASE_URL + 'userstats-service/wellness/daily/' + this.userHash + '?fromDate=' + fromString + '&untilDate=' + untilString + '&metricId=' + metricId;
+        return this.get(url);
     }
 }
 
-function getStress() {
-    // https://connect.garmin.com/modern/proxy/wellness-service/wellness/dailyHeartRate/chregi23
-    // https://connect.garmin.com/modern/proxy/wellness-service/wellness/dailyStress/2022-03-13
-}
