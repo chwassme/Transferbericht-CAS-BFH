@@ -118,6 +118,9 @@ summary(lm2)
 layout(matrix(1:4, 2, 2))  # zusammen mit plot ausführen
 plot(lmRem)
 
+lmHR <- lm(restingHeartRate ~ totalSteps + nrOfFloorsClimbed + avgStressLevel, data)
+summary(lmHR)
+
 res <- as.data.frame(summary(lmLight)$residuals)
 names(res) <- c('residuals')
 head(sort(-summary(lmLight)$residuals))
