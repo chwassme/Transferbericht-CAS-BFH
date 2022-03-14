@@ -2,6 +2,7 @@ import dayjs from "dayjs";
 import storage from "node-persist";
 import fs from "fs";
 import {GarminConnect} from 'garmin-connect';
+import {toDateString} from "garmin-connect/dist/common/DateUtils.js";
 
 main();
 
@@ -10,7 +11,7 @@ async function main() {
     const session = await storage.getItem('session');
 
     // Create a new Garmin Connect Client
-    const GCClient = new GarminConnect();
+    const GCClient = new GarminConnect2();
 
     GCClient.restore(session);
 
@@ -37,8 +38,18 @@ async function main() {
     const stepsKeys = ['startGMT', 'endGMT', 'steps', 'primaryActivityLevel', 'activityLevelConstant'];
     const stepsData = [stepsKeys.join(';')];
 
+    const stressKeys = ['calendarDate', 'maxStressLevel', 'avgStressLevel'];
+    const stressData = [stressKeys.join(';')];
+
+    const stressValuesKeys = ['timestamp', 'stressLevel'];
+    const stressValues = [stressValuesKeys.join(';')];
+
     while (currentDate.isBefore(endDate) || currentDate.isSame(endDate)) {
         const curDate = currentDate.toDate();
+
+        const stress = await GCClient.getStress(curDate);
+        stressData.push(stressKeys.map(key => stress[key]).join(';'));
+        stressValues.push(...stress.stressValuesArray.map(value => value.join(';')));
 
         const sleep = await GCClient.getSleep(curDate);
         if (!sleepKeys) {
@@ -55,6 +66,7 @@ async function main() {
             stepsData.push(stepsKeys.map(key => stepData[key]).join(';'));
         });
 
+
         console.log(curDate, sleep.id, sleep.deepSleepSeconds, steps.length, heartRate.restingHeartRate)
 
         currentDate = currentDate.add(1, "days");
@@ -62,6 +74,8 @@ async function main() {
     writeFile('sleep', sleepData);
     writeFile('heartrate', heartRateData);
     writeFile('steps', stepsData);
+    writeFile('stress', stressData);
+    writeFile('stressvalues', stressValues);
 }
 
 function writeFile(name, data) {
@@ -71,3 +85,16 @@ function writeFile(name, data) {
     });
 }
 
+class GarminConnect2 extends GarminConnect {
+
+    async getStress(date = new Date()) {
+        const dateString = toDateString(date);
+        const url = 'https://connect.garmin.com/modern/proxy/wellness-service/wellness/dailyStress/' + dateString;
+        return this.get(url, { date: dateString });
+    }
+}
+
+function getStress() {
+    // https://connect.garmin.com/modern/proxy/wellness-service/wellness/dailyHeartRate/chregi23
+    // https://connect.garmin.com/modern/proxy/wellness-service/wellness/dailyStress/2022-03-13
+}
