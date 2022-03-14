@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {},
   "dependencies": {
+    "dayjs": "^1.10.8",
     "garmin-connect": "^1.4.2",
     "node-persist": "^3.1.0"
   }
