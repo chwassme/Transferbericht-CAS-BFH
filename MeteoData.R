@@ -5,8 +5,8 @@ library(tidyr)
 if(!file.exists('./data/TemperaturesZurich.Rda')){
   # create empty dataframe
   Temperatures.df <- data.frame()
-  # get values for 2010 - 2021
-  for(i in 2010:2021){
+  # get values for 2011 - 2021
+  for(i in 2011:2021){
     url <- paste("https://data.stadt-zuerich.ch/dataset/ugz_meteodaten_stundenmittelwerte/download/ugz_ogd_meteo_h1_", as.character(i), ".csv", sep = '')
     data <- read.csv(url, encoding = 'UTF-8')
     df <- data.frame(data) %>%
