@@ -41,8 +41,12 @@ process_day <- function(Month, Weekday){
 
 ## data pre-processing
 # load raw data into workspace
-RawAccident <- read.csv('./data/KTZH_00000718_00001783.csv', header = TRUE, sep = ';', stringsAsFactors = TRUE, colClasses = c("AccidentUID" = "character"))
-load('./data/MeteoDataZurich.Rda')
+Basedir <- "/Users/chwassme/Dropbox/dev/edu.self/cas/010_Kurse/005-LinReg/Transferbericht/data/"
+AccidentFile <- paste0(Basedir, 'KTZH_00000718_00001783.csv')
+RawAccident <- read.csv(AccidentFile, header = TRUE, sep = ';', stringsAsFactors = TRUE, colClasses = c("AccidentUID" = "character"))
+
+meteoZurichFile <- paste0(Basedir, 'MeteoDataZurich.Rda')
+load(meteoZurichFile)
 
 # process raw data to extract information needed for this project
 Accident.df <- RawAccident %>%
@@ -120,6 +124,8 @@ CorrDataDaily.df <- AccidentDaily.df %>%
 
 CorrMatrixDaily <- cor(CorrDataDaily.df)  
 
+
+# interessant waere auch die Correlation der Temperatur zu den anderen Unfallarten als Vergleich
 ggcorrplot(CorrMatrixDaily, type = "lower", lab = TRUE)
 #ggpairs(CorrDataDaily.df) # attention -> takes a very long time to visualize (large dataset)
 
