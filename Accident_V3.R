@@ -42,7 +42,7 @@ process_day <- function(Month, Weekday){
 ## data pre-processing
 # load raw data into workspace
 RawAccident <- read.csv('./data/KTZH_00000718_00001783.csv', header = TRUE, sep = ';', stringsAsFactors = TRUE, colClasses = c("AccidentUID" = "character"))
-load('./data/TemperaturesZurich.Rda')
+load('./data/MeteoDataZurich.Rda')
 
 # process raw data to extract information needed for this project
 Accident.df <- RawAccident %>%
@@ -57,28 +57,25 @@ Accident.df <- RawAccident %>%
   mutate(IsSevere = ifelse(grepl('severe', SeverityCategory) | grepl('fatalities', SeverityCategory), 1, 0)) %>%
   mutate(IsDeadly = ifelse(grepl('fatalities', SeverityCategory), 1, 0))
 
-# add temperature information to daily dataframe
-Accident.df <- merge(Accident.df, Temperatures.df, by=c('Year', 'Month', 'Day')) %>%
-  rename(Temperature = Mean)
+# add meteo information to dataframe
+Accident.df <- merge(Accident.df, MeteoData.df, by=c('Year', 'Month', 'Day'))
 
 # group data into daily sets
 AccidentDaily.df <- Accident.df %>%
-  select(Year, Month, Day, InvolvingPedestrian, InvolvingBicycle, InvolvingMotorcycle, IsSevere, IsDeadly, Temperature) %>%
+  select(Year, Month, Day, InvolvingPedestrian, InvolvingBicycle, InvolvingMotorcycle, IsSevere, IsDeadly, Temperature, RainDuration) %>%
   group_by(Year, Month, Day) %>%
   mutate(Total = n()) %>%
-  summarise(Total, 
+  summarise(Total = mean(Total), 
             InvolvingPedestrian = sum(InvolvingPedestrian), 
             InvolvingBicycle = sum(InvolvingBicycle), 
             InvolvingMotorcycle = sum(InvolvingMotorcycle),
             IsSevere = sum(IsSevere),
             IsDeadly = sum(IsDeadly),
-            Temperature = mean(Temperature)) %>%
-  ungroup
-
-# add date to daily dataframe
-AccidentDaily.df <- AccidentDaily.df %>% 
+            Temperature = mean(Temperature),
+            RainDuration = mean(RainDuration)) %>%
   mutate(Date = as.Date(paste(as.character(Year), '-', as.character(Month), '-', as.character(Day), sep = ''), format = '%Y-%m-%d')) %>%
-  select(Date, everything())
+  select(Date, everything()) %>%
+  ungroup
 
 # further group data into monthly sets
 AccidentMonthly.df <- AccidentDaily.df %>%
@@ -89,7 +86,8 @@ AccidentMonthly.df <- AccidentDaily.df %>%
             InvolvingMotorcycle = sum(InvolvingMotorcycle),
             IsSevere = sum(IsSevere), 
             IsDeadly = sum(IsDeadly),
-            Temperature = mean(Temperature)) %>%
+            Temperature = mean(Temperature),
+            RainDuration = sum(RainDuration)) %>%
   mutate(Date = as.Date(paste(as.character(Year), '-', as.character(Month), '-01', sep = ''), format = '%Y-%m-%d')) %>%
   select(Date, everything()) %>%
   ungroup
@@ -118,7 +116,6 @@ hist(Accident.df$Month[Accident.df$InvolvingMotorcycle==TRUE])
 ## data exploration - correlation
 # correlations in dataset AccidentsDaily.df
 CorrDataDaily.df <- AccidentDaily.df %>%
-  ungroup %>%
   select(Total, InvolvingPedestrian, InvolvingBicycle, InvolvingMotorcycle, IsSevere, IsDeadly, Temperature)
 
 CorrMatrixDaily <- cor(CorrDataDaily.df)  
@@ -128,7 +125,7 @@ ggcorrplot(CorrMatrixDaily, type = "lower", lab = TRUE)
 
 # correlations in dataset AccidentsMonthly.df
 CorrDataMonthly.df <- AccidentMonthly.df %>%
-  select(Total, InvolvingPedestrian, InvolvingBicycle, InvolvingMotorcycle, IsSevere, IsDeadly, Temperature)
+  select(Total, InvolvingPedestrian, InvolvingBicycle, InvolvingMotorcycle, IsSevere, IsDeadly, Temperature, RainDuration)
 
 CorrMatrixMonthly <- cor(CorrDataMonthly.df)  
 
@@ -149,7 +146,7 @@ ggplot(AccidentMonthly.df, aes(x = Date, y = Total)) +
   ggtitle('Total Number of Monthly Accidents') + 
   theme_light()
 
-ggplot(AccidentMonthly.plot.df, aes(x = Date, y = Values, color = Involved)) + 
+ggplot(AccidentMonthly.plot.df, aes(x = Date, y = Values, color = Involved)) +
   geom_line() + 
   ylab('Number of Accidents') + 
   ggtitle('Monthly Number of Accidents involving pedestrians, bicycles and motorcycles') + 
