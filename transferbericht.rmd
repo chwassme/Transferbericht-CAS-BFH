@@ -13,8 +13,12 @@ library(car)
 library(moments)
 library(stringr)
 library(leaps)
+library(ggplot2)
+library(ggcorrplot)
+library(GGally)
 
-basedir <- '/Users/chwassme/Dropbox/dev/edu.self/cas/010_Kurse/005-LinReg/Transferbericht/data/';
+#basedir <- '/Users/chwassme/Dropbox/dev/edu.self/cas/010_Kurse/005-LinReg/Transferbericht/data/';
+basedir <- 'C:/git/Transferbericht-CAS-BFH/data/'
 ```
 
 # Datenquellen
@@ -75,14 +79,14 @@ accidentsFile <- paste0(basedir, 'KTZH_00000718_00001783.csv')
 rawAccident <- read.csv(accidentsFile, header = TRUE, sep = ';', stringsAsFactors = TRUE)
 
 accidentData <- rawAccident %>%
-  select(AccidentUID, AccidentType_de, AccidentSeverityCategory_de, RoadType_de, MunicipalityCode, AccidentYear, AccidentMonth, AccidentWeekDay, AccidentHour) %>%
+  select(1, AccidentType_de, AccidentSeverityCategory_de, RoadType_de, MunicipalityCode, AccidentYear, AccidentMonth, AccidentWeekDay, AccidentHour) %>%
   mutate(AccidentType_de = normalizeText(AccidentType_de)) %>%
   mutate(AccidentSeverityCategory_de = normalizeText(AccidentSeverityCategory_de, 20)) %>%
   mutate(RoadType_de = normalizeText(RoadType_de)) %>%
   mutate(YearMonth = paste(AccidentYear, sprintf("%02.f", AccidentMonth), sep = '-'))
 
 # Aus Gründen der Übersichtlichkeit wird die UID des Unfalls ausgeblendet
-head(accidentData %>% select(-AccidentUID))
+head(accidentData %>% select(-1))
 ## Daten einlesen
 ```
 
@@ -275,3 +279,223 @@ Das Modell, welches mittels BIC gefunden wurde, wurde verworfen: Die Residuen si
 Alle Aussagen basieren auf einem Signifikanzniveau von 95%.
 
 Interessant wäre vermutlich die Einflussfaktoren in den Gruppen einzeln zu analysieren, also Wochentage, Unfallart, Strassentyp und ggf. auch Stunde; als auch mit anderen Schwerekategorien zu untersuchen.
+
+# Zeitreihenanalyse "Unfall- und Meteodaten"
+
+## Daten einlesen
+### Unfalldaten
+Es werden dieselben Daten wie bereits für das Regressionsmodell verwerdent.
+```{r}
+# function to change column names (remove "Accident", whitespaces and language designator)
+process_headers <- function(Headers){
+  NewHeaders <- NULL
+  for(i in 1:length(Headers)){
+    tmp <- str_replace(Headers[i], '_', '')
+    tmp <- str_replace(tmp, 'Accident', '')
+    NewHeaders[i] <- str_replace(tmp, 'en', '')
+  }
+  return(NewHeaders)
+}
+
+# function to extract calendar day from available data
+process_day <- function(Month, Weekday){
+  Day <- 1
+  for(i in 2:length(Weekday)){
+    # increment day counter if weekday variable changes
+    if(Weekday[i] == Weekday[i-1]){
+      Day[i] <- Day[i-1]
+    } else {
+      Day[i] = Day[i-1] + 1
+    }
+    # reset if month variable changes
+    if(Month[i] != Month[i-1]){
+      Day[i] = 1
+    }
+  }
+  return(Day)
+}
+
+# load raw data into workspace
+AccidentFile <- paste0(basedir, 'KTZH_00000718_00001783.csv')
+RawAccident <- read.csv(AccidentFile, header = TRUE, sep = ';', stringsAsFactors = TRUE, colClasses = c("AccidentUID" = "character"))
+
+# process raw data to extract information needed for this project
+Accident.df <- RawAccident %>%
+  select(6, 11, 12, 13, 14, 19, 20, 21, 23, 24, 25, 30, 35) %>%
+  drop_na %>%
+  rename_with(process_headers) %>%
+  mutate(WeekDay = as.numeric(substr(WeekDay, 5, 5))) %>%
+  mutate(Day = process_day(Month, WeekDay)) %>%
+  mutate(InvolvingPedestrian = ifelse(InvolvingPedestrian == 'true', 1, 0)) %>%
+  mutate(InvolvingBicycle = ifelse(InvolvingBicycle == 'true', 1, 0)) %>%
+  mutate(InvolvingMotorcycle = ifelse(InvolvingMotorcycle == 'true', 1, 0)) %>%
+  mutate(IsSevere = ifelse(grepl('severe', SeverityCategory) | grepl('fatalities', SeverityCategory), 1, 0)) %>%
+  mutate(IsDeadly = ifelse(grepl('fatalities', SeverityCategory), 1, 0))
+```
+
+### Meteodaten
+Die Meteodaten werden direkt von data.stadt-zuerich.ch heruntergeladen und in einen dataframe gespeichert. 
+Wurde die Datei bereits einmal ausgeführt, so ist MeteoDataZurich.Rda bereits verfügbar und wird lokal geladen.
+```{r}
+# check if data exists in directory
+if(!file.exists(paste0(basedir, 'MeteoDataZurich.Rda'))){
+  # create empty dataframe
+  MeteoData.df <- data.frame()
+  # get values for 2011 - 2021
+  for(i in 2011:2021){
+    
+    url <- paste("https://data.stadt-zuerich.ch/dataset/ugz_meteodaten_stundenmittelwerte/download/ugz_ogd_meteo_h1_", as.character(i), ".csv", sep = '')
+    data <- read.csv(url, encoding = 'UTF-8')
+    df <- data.frame(data) %>%
+      mutate(Year = as.numeric(substr(X.U.FEFF.Datum, 1, 4))) %>%
+      mutate(Month = as.numeric(substr(X.U.FEFF.Datum, 6, 7))) %>%
+      mutate(Day = as.numeric(substr(X.U.FEFF.Datum, 9, 10))) %>%
+      mutate(Hour = as.numeric(substr(X.U.FEFF.Datum, 12, 13))) %>%
+      pivot_wider(names_from = Parameter, values_from = Wert) %>%
+      select(Year, Month, Day, Hour, T, RainDur) %>%
+      group_by(Year, Month, Day, Hour) %>%
+      summarise(Temperature = mean(T, na.rm = TRUE), RainDuration = mean(RainDur, na.rm = TRUE)) %>%
+      ungroup %>%
+      select(Year, Month, Day, Temperature, RainDuration) %>%
+      group_by(Year, Month, Day) %>%
+      summarise(Temperature = mean(Temperature, na.rm = TRUE), RainDuration = sum(RainDuration, na.rm = TRUE))
+    MeteoData.df <- rbind(MeteoData.df, df)
+  }
+  # save data to Rda file
+  save(MeteoData.df, file = paste0(basedir, 'MeteoDataZurich.Rda'))
+} else {
+  load(paste0(basedir, 'MeteoDataZurich.Rda'))
+}
+```
+
+### Daten mergen
+```{r}
+# add meteo information to dataframe
+Accident.df <- merge(Accident.df, MeteoData.df, by=c('Year', 'Month', 'Day'))
+```
+
+## Daten bearbeiten und gruppieren 
+### Tagesdaten
+```{r}
+# group data into daily sets
+AccidentDaily.df <- Accident.df %>%
+  select(Year, Month, Day, InvolvingPedestrian, InvolvingBicycle, InvolvingMotorcycle, IsSevere, IsDeadly, Temperature, RainDuration) %>%
+  group_by(Year, Month, Day) %>%
+  mutate(Total = n()) %>%
+  summarise(Total = mean(Total), 
+            InvolvingPedestrian = sum(InvolvingPedestrian), 
+            InvolvingBicycle = sum(InvolvingBicycle), 
+            InvolvingMotorcycle = sum(InvolvingMotorcycle),
+            IsSevere = sum(IsSevere),
+            IsDeadly = sum(IsDeadly),
+            Temperature = mean(Temperature),
+            RainDuration = mean(RainDuration)) %>%
+  mutate(Date = as.Date(paste(as.character(Year), '-', as.character(Month), '-', as.character(Day), sep = ''), format = '%Y-%m-%d')) %>%
+  select(Date, everything()) %>%
+  ungroup
+```
+
+### Monatsdaten
+```{r}
+# further group data into monthly sets
+AccidentMonthly.df <- AccidentDaily.df %>%
+  group_by(Year, Month) %>%
+  summarise(Total = sum(Total),
+            InvolvingPedestrian = sum(InvolvingPedestrian), 
+            InvolvingBicycle = sum(InvolvingBicycle), 
+            InvolvingMotorcycle = sum(InvolvingMotorcycle),
+            IsSevere = sum(IsSevere), 
+            IsDeadly = sum(IsDeadly),
+            Temperature = mean(Temperature),
+            RainDuration = sum(RainDuration)) %>%
+  mutate(Date = as.Date(paste(as.character(Year), '-', as.character(Month), '-01', sep = ''), format = '%Y-%m-%d')) %>%
+  select(Date, everything()) %>%
+  ungroup
+```
+
+## Grafisched Datenexploration
+### Histogramme
+```{r}
+# accidents vs. hour
+hist(Accident.df$Hour)
+hist(Accident.df$Hour[Accident.df$InvolvingPedestrian==TRUE])
+hist(Accident.df$Hour[Accident.df$InvolvingBicycle==TRUE])
+hist(Accident.df$Hour[Accident.df$InvolvingMotorcycle==TRUE])
+
+# accidents vs. weekday
+hist(Accident.df$WeekDay)
+hist(Accident.df$WeekDay[Accident.df$InvolvingPedestrian==TRUE])
+hist(Accident.df$WeekDay[Accident.df$InvolvingBicycle==TRUE])
+hist(Accident.df$WeekDay[Accident.df$InvolvingMotorcycle==TRUE])
+
+# accidents vs. month
+hist(Accident.df$Month)
+hist(Accident.df$Month[Accident.df$InvolvingPedestrian==TRUE])
+hist(Accident.df$Month[Accident.df$InvolvingBicycle==TRUE])
+hist(Accident.df$Month[Accident.df$InvolvingMotorcycle==TRUE])
+```
+
+### Korrelationen
+```{r}
+# daily data
+CorrDataDaily.df <- AccidentDaily.df %>%
+  select(Total, InvolvingPedestrian, InvolvingBicycle, InvolvingMotorcycle, IsSevere, IsDeadly, Temperature)
+
+CorrMatrixDaily <- cor(CorrDataDaily.df)  
+
+ggcorrplot(CorrMatrixDaily, type = "lower", lab = TRUE)
+#ggpairs(CorrDataDaily.df) # attention -> takes a very long time to visualize (large dataset)
+
+# monthly data
+CorrDataMonthly.df <- AccidentMonthly.df %>%
+  select(Total, InvolvingPedestrian, InvolvingBicycle, InvolvingMotorcycle, IsSevere, IsDeadly, Temperature, RainDuration)
+
+CorrMatrixMonthly <- cor(CorrDataMonthly.df)  
+
+ggcorrplot(CorrMatrixMonthly, type = "lower", lab = TRUE)
+ggpairs(CorrDataMonthly.df)
+```
+
+## Zeitreihen 
+### Zeitreihen plotten
+```{r}
+# select some data to make ready to plot with ggplot
+AccidentMonthly.plot.df <- AccidentMonthly.df %>%
+  select(Date, InvolvingPedestrian, InvolvingBicycle, InvolvingMotorcycle) %>%
+  pivot_longer(!Date, names_to = 'Involved', values_to = 'Values')
+
+# plot data using ggplot
+ggplot(AccidentMonthly.df, aes(x = Date, y = Total)) + 
+  geom_line() + 
+  ylab('Number of Accidents') + 
+  ggtitle('Total Number of Monthly Accidents') + 
+  theme_light()
+
+ggplot(AccidentMonthly.plot.df, aes(x = Date, y = Values, color = Involved)) +
+  geom_line() + 
+  ylab('Number of Accidents') + 
+  ggtitle('Monthly Number of Accidents involving pedestrians, bicycles and motorcycles') + 
+  theme_light()
+```
+
+### Zeitreihenanalyse
+```{r}
+# create timeseries from monthly data
+InvolvingBicycleMonthly.ts <- ts(AccidentMonthly.df$InvolvingBicycle, start=c(AccidentMonthly.df$Year[1], AccidentMonthly.df$Month[1]), frequency = 12)
+InvolvingMotorcycleMonthly.ts <- ts(AccidentMonthly.df$InvolvingMotorcycle, start=c(AccidentMonthly.df$Year[1], AccidentMonthly.df$Month[1]), frequency = 12)
+
+# decompose time series objects
+InvolvingBicycleMonthly.ts.m <- decompose(InvolvingBicycleMonthly.ts, type = 'multiplicative')
+plot(InvolvingBicycleMonthly.ts.m)  
+
+InvolvingMotorcycleMonthly.ts.a <- decompose(InvolvingMotorcycleMonthly.ts, type = 'additive')
+plot(InvolvingMotorcycleMonthly.ts.a)  
+```
+## Analyse und Fazit
+Grundsätzlich entspricht die Zeitreihenanalyse den Erwartungen, welche man aufgrund der Saisonalität von Unfällen mit Fahrrädern und Motorrädern haben könnte: In den wärmeren Monaten, insbesonderen an warmen Tagen (starke Korrelation zwischen Temperatur und Anzahl Velo- und Motorradunfällen), sind die Unfallzahlen mit Velos und Motorrädern stark erhöht gegenüber den Wintermonaten. Die Zahl der Velounfälle scheint auch mit einem gewissen Trend zu steigen. 
+
+Zudem scheint eine negative Korrelation mit Regentagen und Unfällen mit Velos und Motorrädern zu bestehen, was ebenfalls Sinn machen würde. 
+
+
+Im Allgemeinen sieht man nichts Aussergewöhnliches als das was man aufgrund der Jahreszeiten sowieso vermuten würde.
+
