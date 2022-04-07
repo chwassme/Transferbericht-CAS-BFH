@@ -1,6 +1,15 @@
 ---
-title: "Transferbericht 'Ursache tödlicher Unfälle im Kanton Zürich'"
-output: html_document
+title: "Unfallanalyse im Kanton Zürich"
+author: Joel Wenger und Christian Wassmer
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    theme: cosmo
+    toc: yes
+    toc_depth: 3
+    toc_float:
+      collapsed: yes
+      smooth_scroll: yes
 ---
 
 ```{r warning=FALSE, message=FALSE, echo=FALSE}
@@ -17,9 +26,13 @@ library(ggplot2)
 library(ggcorrplot)
 library(GGally)
 
-#basedir <- '/Users/chwassme/Dropbox/dev/edu.self/cas/010_Kurse/005-LinReg/Transferbericht/data/';
-basedir <- 'C:/git/Transferbericht-CAS-BFH/data/'
+basedir <- '/Users/chwassme/Dropbox/dev/edu.self/cas/010_Kurse/005-LinReg/Transferbericht/data/';
+# basedir <- 'C:/git/Transferbericht-CAS-BFH/data/'
 ```
+
+# Einleitung
+
+Dieser Transferbericht untersucht die Einflussfaktoren von tödlichen Unfällen. Er wurde im Rahmen der Vorlesungen "Lineare Regression" und "Zeitreihenanalyse" der BFH im Herbstsemester 2021/22 erfasst, welche von Dr. Raul Gimeno gehalten wurden.
 
 # Datenquellen
 
@@ -33,34 +46,12 @@ Zu jedem Strassenverkehrsunfall sind der Unfallort (geokodiert), das Jahr, der M
 
 Die Datei "KTZH_00000718_00001783.csv" wurde am 11.03.2022 heruntergeladen. Am 16.03.2022 wurde eine neue Version veröffentlicht, welche mit dem Script nicht kompatibel ist.
 
-## Motorisierter Individualverkehr
-- https://data.stadt-zuerich.ch/dataset/sid_dav_verkehrszaehlung_miv_od2031
-
-Die hier verfügbaren Datensätze beinhalten die täglich aktualisierten Messwerte zum motorisierten Individualverkehr (MIV) in der Stadt Zürich, welche von den zahlreichen Zählstellen der Dienstabteilung Verkehr (DAV) gemessen wurden.
-
-Die Aktualisierung beinhaltet jeweils die Daten von vorgestern (z.B. am 17.1.2021 werden die Daten bis und mit dem vollendeten 15.1.2021 geliefert). Bis spätestens 08:00 Uhr sind die neuesten Daten verfügbar.
-
-Zu einer Messstelle gehören mehrere Zählstellen, welche wiederum Messungen mit sogenannten Detektoren vornehmen. In den vorliegenden Datensätzen sind die Messwerte pro Zählstelle enthalten. Für jede Zählstelle gibt es einen detaillierten PDF-Situationsplan in der Datei "Zaehlstellen_Detail.zip", welcher u.a. die genaue Lage der Detektoren anzeigt.
-
-## Fussgänger und Veloverkehr
-- https://data.stadt-zuerich.ch/dataset/ted_taz_verkehrszaehlungen_werte_fussgaenger_velo
-
-Die täglich aktalisierten **Zähldaten** werden vom Tiefbauamt der Stadt Zürich in eigener Regie erhoben. Die Zählstellen sind über das Stadtgebiet verteilt. Die Standorte sind auch über das [Geodatenportal](https://www.stadt-zuerich.ch/geodaten/download/Standorte_der_automatischen_Fuss__und_Velozaehlungen) erhältlich und können über das Attribut FK_ZAEHLER in Beziehung gesetzt werden. Die Erfassung des **Veloverkehrs** erfolgt mittels im Strassenbelag eingelassenen **Induktionsschlaufen**. Der **Fussverkehr** wird durch **passive Infrarotstrahlung** gezählt.
-
 ## Meteodaten
 - https://data.stadt-zuerich.ch/dataset/ugz_meteodaten_stundenmittelwerte
 
 Der Datensatz umfasst Stundenwerte ab 1992 bis zur letzten aktuellen Stunde aufgeteilt in Jahresdateien. Darin enthalten sind die Stationen Stampfenbachstrasse, Schimmelstrasse und Rosengartenstrasse. Gemessen wird der Luftdruck (p), die Niederschlagsdauer (RainDur), die Globalstrahlung (StrGlo), die Temperatur (T), die relative Luftfeuchtigkeit (Hr), die Windrichtung, die Vektor und Skalar Windgeschwindigkeit. Vor 2018 sind die Skalar Windgeschwindigkeiten aus den 30 Minuten Vektor Daten gerechnet worden.
 s
 Die Stundenwerte des laufenden Jahres werden jeweils 30 Minuten nach der vollen Stunde aktualisiert.
-
-## Luftqualität
-- https://data.stadt-zuerich.ch/dataset/ugz_luftschadstoffmessung_stundenwerte
-
-Dieses Dataset umfasst Stundenmesswerte seit 1983 bis zur letzten aktuellen Stunde, aufgeteilt in Jahresdateien. Darin enthalten sind die Stundenmittelwerte des entsprechenden Jahres für die Stationen Stampfenbachstrasse, Schimmelstrasse, Rosengartenstrasse und Heubeeribüel. Gemessen wird Ozon (O3), Stickoxide (NOx), Stickstoffmonoxid (NO), Stickstoffdioxid (NO2), Feinstaub (PM10 und PM2.5), Kohlenmonoxid (CO) und Schwefeldioxid (SO2) wo jeweils in genügender Qualität vorhanden.
-
-Die Stundenmittelwerte des laufenden Jahres werden jeweils 30 Minuten nach der vollen Stunde aktualisiert.
-
 
 
 # Lineare Regression "Unfalldaten"
@@ -90,7 +81,7 @@ head(accidentData %>% select(-1))
 ## Daten einlesen
 ```
 
-## Unfall nach Typ
+### Unfall nach Typ
 ```{r}
 accidentByType <- table(accidentData$YearMonth, accidentData$AccidentType) %>%
   as.data.frame() %>%
@@ -98,7 +89,7 @@ accidentByType <- table(accidentData$YearMonth, accidentData$AccidentType) %>%
   rename(YearMonth = Var1)
 tail(accidentByType, 12)
 ```
-## Unfall nach Schwerekategorie
+### Unfall nach Schwerekategorie
 
 ```{r}
 accidentBySeverity <- table(accidentData$YearMonth, accidentData$AccidentSeverityCategory) %>%
@@ -108,7 +99,7 @@ accidentBySeverity <- table(accidentData$YearMonth, accidentData$AccidentSeverit
 tail(accidentBySeverity, 12)
 
 ```
-## Unfall nach Strassentyp
+### Unfall nach Strassentyp
 
 ```{r}
 accidentByRoadType <- table(accidentData$YearMonth, accidentData$RoadType) %>%
@@ -118,7 +109,7 @@ accidentByRoadType <- table(accidentData$YearMonth, accidentData$RoadType) %>%
 tail(accidentByRoadType, 12)
 
 ```
-## Unfall nach Stunde
+### Unfall nach Stunde
 
 Wird in der Regressionsanalyse nicht weiter verwendet.
 
@@ -130,7 +121,7 @@ accidentByHour <- table(accidentData$YearMonth, accidentData$AccidentHour) %>%
 tail(accidentByHour, 12)
 
 ```
-## Unfall nach Wochentag
+### Unfall nach Wochentag
 
 ```{r}
 accidentByWeekDay <- table(accidentData$YearMonth, accidentData$AccidentWeekDay) %>%
@@ -140,7 +131,7 @@ accidentByWeekDay <- table(accidentData$YearMonth, accidentData$AccidentWeekDay)
   rename(Mo = aw401, Di = aw402, Mi = aw403, Do = aw404, Fr = aw405, Sa = aw406, So = aw407)
 tail(accidentByWeekDay, 12)
 ```
-## Zusammenfassung
+### Zusammenfassung
 
 Das Datenset erstreckt sich über 120 Monate (Januar 2011 bis Dezember 2022) und enthält rund 150k Unfälle (pro Monat rund 1200).
 
@@ -155,7 +146,7 @@ sum(accidentByMonth$TotalAccidents)
 min(accidentByMonth$YearMonth)
 max(accidentByMonth$YearMonth)
 ```
-## Alle Daten zusammenführen
+### Alle Daten zusammenführen
 
 ```{r}
 accidentFreq <- accidentByMonth %>%
@@ -284,12 +275,12 @@ Interessant wäre vermutlich die Einflussfaktoren in den Gruppen einzeln zu anal
 
 ## Daten einlesen
 ### Unfalldaten
-Es werden dieselben Daten wie bereits für das Regressionsmodell verwerdent.
+Es werden dieselben Daten wie bereits für das Regressionsmodell verwendet.
 ```{r}
 # function to change column names (remove "Accident", whitespaces and language designator)
-process_headers <- function(Headers){
+process_headers <- function(Headers) {
   NewHeaders <- NULL
-  for(i in 1:length(Headers)){
+  for (i in 1:length(Headers)) {
     tmp <- str_replace(Headers[i], '_', '')
     tmp <- str_replace(tmp, 'Accident', '')
     NewHeaders[i] <- str_replace(tmp, 'en', '')
@@ -298,17 +289,17 @@ process_headers <- function(Headers){
 }
 
 # function to extract calendar day from available data
-process_day <- function(Month, Weekday){
+process_day <- function(Month, Weekday) {
   Day <- 1
-  for(i in 2:length(Weekday)){
+  for (i in 2:length(Weekday)) {
     # increment day counter if weekday variable changes
-    if(Weekday[i] == Weekday[i-1]){
-      Day[i] <- Day[i-1]
+    if (Weekday[i] == Weekday[i - 1]) {
+      Day[i] <- Day[i - 1]
     } else {
-      Day[i] = Day[i-1] + 1
+      Day[i] = Day[i - 1] + 1
     }
     # reset if month variable changes
-    if(Month[i] != Month[i-1]){
+    if (Month[i] != Month[i - 1]) {
       Day[i] = 1
     }
   }
@@ -334,16 +325,16 @@ Accident.df <- RawAccident %>%
 ```
 
 ### Meteodaten
-Die Meteodaten werden direkt von data.stadt-zuerich.ch heruntergeladen und in einen dataframe gespeichert. 
+Die Meteodaten werden direkt von data.stadt-zuerich.ch heruntergeladen und in einen dataframe gespeichert.
 Wurde die Datei bereits einmal ausgeführt, so ist MeteoDataZurich.Rda bereits verfügbar und wird lokal geladen.
 ```{r}
 # check if data exists in directory
-if(!file.exists(paste0(basedir, 'MeteoDataZurich.Rda'))){
+if (!file.exists(paste0(basedir, 'MeteoDataZurich.Rda'))) {
   # create empty dataframe
   MeteoData.df <- data.frame()
   # get values for 2011 - 2021
-  for(i in 2011:2021){
-    
+  for (i in 2011:2021) {
+
     url <- paste("https://data.stadt-zuerich.ch/dataset/ugz_meteodaten_stundenmittelwerte/download/ugz_ogd_meteo_h1_", as.character(i), ".csv", sep = '')
     data <- read.csv(url, encoding = 'UTF-8')
     df <- data.frame(data) %>%
@@ -368,23 +359,24 @@ if(!file.exists(paste0(basedir, 'MeteoDataZurich.Rda'))){
 }
 ```
 
-### Daten mergen
+### Daten zusammenführen
 ```{r}
 # add meteo information to dataframe
-Accident.df <- merge(Accident.df, MeteoData.df, by=c('Year', 'Month', 'Day'))
+Accident.df <- merge(Accident.df, MeteoData.df, by = c('Year', 'Month', 'Day'))
 ```
 
-## Daten bearbeiten und gruppieren 
+## Daten bearbeiten und gruppieren
+
 ### Tagesdaten
-```{r}
+```{r message=FALSE}
 # group data into daily sets
 AccidentDaily.df <- Accident.df %>%
   select(Year, Month, Day, InvolvingPedestrian, InvolvingBicycle, InvolvingMotorcycle, IsSevere, IsDeadly, Temperature, RainDuration) %>%
   group_by(Year, Month, Day) %>%
   mutate(Total = n()) %>%
-  summarise(Total = mean(Total), 
-            InvolvingPedestrian = sum(InvolvingPedestrian), 
-            InvolvingBicycle = sum(InvolvingBicycle), 
+  summarise(Total = mean(Total),
+            InvolvingPedestrian = sum(InvolvingPedestrian),
+            InvolvingBicycle = sum(InvolvingBicycle),
             InvolvingMotorcycle = sum(InvolvingMotorcycle),
             IsSevere = sum(IsSevere),
             IsDeadly = sum(IsDeadly),
@@ -396,15 +388,15 @@ AccidentDaily.df <- Accident.df %>%
 ```
 
 ### Monatsdaten
-```{r}
+```{r message=FALSE}
 # further group data into monthly sets
 AccidentMonthly.df <- AccidentDaily.df %>%
   group_by(Year, Month) %>%
   summarise(Total = sum(Total),
-            InvolvingPedestrian = sum(InvolvingPedestrian), 
-            InvolvingBicycle = sum(InvolvingBicycle), 
+            InvolvingPedestrian = sum(InvolvingPedestrian),
+            InvolvingBicycle = sum(InvolvingBicycle),
             InvolvingMotorcycle = sum(InvolvingMotorcycle),
-            IsSevere = sum(IsSevere), 
+            IsSevere = sum(IsSevere),
             IsDeadly = sum(IsDeadly),
             Temperature = mean(Temperature),
             RainDuration = sum(RainDuration)) %>%
@@ -413,26 +405,26 @@ AccidentMonthly.df <- AccidentDaily.df %>%
   ungroup
 ```
 
-## Grafisched Datenexploration
+## Grafische Datenexploration
 ### Histogramme
 ```{r}
 # accidents vs. hour
 hist(Accident.df$Hour)
-hist(Accident.df$Hour[Accident.df$InvolvingPedestrian==TRUE])
-hist(Accident.df$Hour[Accident.df$InvolvingBicycle==TRUE])
-hist(Accident.df$Hour[Accident.df$InvolvingMotorcycle==TRUE])
+hist(Accident.df$Hour[Accident.df$InvolvingPedestrian == TRUE])
+hist(Accident.df$Hour[Accident.df$InvolvingBicycle == TRUE])
+hist(Accident.df$Hour[Accident.df$InvolvingMotorcycle == TRUE])
 
 # accidents vs. weekday
 hist(Accident.df$WeekDay)
-hist(Accident.df$WeekDay[Accident.df$InvolvingPedestrian==TRUE])
-hist(Accident.df$WeekDay[Accident.df$InvolvingBicycle==TRUE])
-hist(Accident.df$WeekDay[Accident.df$InvolvingMotorcycle==TRUE])
+hist(Accident.df$WeekDay[Accident.df$InvolvingPedestrian == TRUE])
+hist(Accident.df$WeekDay[Accident.df$InvolvingBicycle == TRUE])
+hist(Accident.df$WeekDay[Accident.df$InvolvingMotorcycle == TRUE])
 
 # accidents vs. month
 hist(Accident.df$Month)
-hist(Accident.df$Month[Accident.df$InvolvingPedestrian==TRUE])
-hist(Accident.df$Month[Accident.df$InvolvingBicycle==TRUE])
-hist(Accident.df$Month[Accident.df$InvolvingMotorcycle==TRUE])
+hist(Accident.df$Month[Accident.df$InvolvingPedestrian == TRUE])
+hist(Accident.df$Month[Accident.df$InvolvingBicycle == TRUE])
+hist(Accident.df$Month[Accident.df$InvolvingMotorcycle == TRUE])
 ```
 
 ### Korrelationen
@@ -441,7 +433,7 @@ hist(Accident.df$Month[Accident.df$InvolvingMotorcycle==TRUE])
 CorrDataDaily.df <- AccidentDaily.df %>%
   select(Total, InvolvingPedestrian, InvolvingBicycle, InvolvingMotorcycle, IsSevere, IsDeadly, Temperature)
 
-CorrMatrixDaily <- cor(CorrDataDaily.df)  
+CorrMatrixDaily <- cor(CorrDataDaily.df)
 
 ggcorrplot(CorrMatrixDaily, type = "lower", lab = TRUE)
 #ggpairs(CorrDataDaily.df) # attention -> takes a very long time to visualize (large dataset)
@@ -450,13 +442,13 @@ ggcorrplot(CorrMatrixDaily, type = "lower", lab = TRUE)
 CorrDataMonthly.df <- AccidentMonthly.df %>%
   select(Total, InvolvingPedestrian, InvolvingBicycle, InvolvingMotorcycle, IsSevere, IsDeadly, Temperature, RainDuration)
 
-CorrMatrixMonthly <- cor(CorrDataMonthly.df)  
+CorrMatrixMonthly <- cor(CorrDataMonthly.df)
 
 ggcorrplot(CorrMatrixMonthly, type = "lower", lab = TRUE)
 ggpairs(CorrDataMonthly.df)
 ```
 
-## Zeitreihen 
+## Zeitreihen
 ### Zeitreihen plotten
 ```{r}
 # select some data to make ready to plot with ggplot
@@ -465,37 +457,38 @@ AccidentMonthly.plot.df <- AccidentMonthly.df %>%
   pivot_longer(!Date, names_to = 'Involved', values_to = 'Values')
 
 # plot data using ggplot
-ggplot(AccidentMonthly.df, aes(x = Date, y = Total)) + 
-  geom_line() + 
-  ylab('Number of Accidents') + 
-  ggtitle('Total Number of Monthly Accidents') + 
+ggplot(AccidentMonthly.df, aes(x = Date, y = Total)) +
+  geom_line() +
+  ylab('Number of Accidents') +
+  ggtitle('Total Number of Monthly Accidents') +
   theme_light()
 
 ggplot(AccidentMonthly.plot.df, aes(x = Date, y = Values, color = Involved)) +
-  geom_line() + 
-  ylab('Number of Accidents') + 
-  ggtitle('Monthly Number of Accidents involving pedestrians, bicycles and motorcycles') + 
+  geom_line() +
+  ylab('Number of Accidents') +
+  ggtitle('Monthly Number of Accidents involving pedestrians, bicycles and motorcycles') +
   theme_light()
 ```
 
 ### Zeitreihenanalyse
 ```{r}
 # create timeseries from monthly data
-InvolvingBicycleMonthly.ts <- ts(AccidentMonthly.df$InvolvingBicycle, start=c(AccidentMonthly.df$Year[1], AccidentMonthly.df$Month[1]), frequency = 12)
-InvolvingMotorcycleMonthly.ts <- ts(AccidentMonthly.df$InvolvingMotorcycle, start=c(AccidentMonthly.df$Year[1], AccidentMonthly.df$Month[1]), frequency = 12)
+InvolvingBicycleMonthly.ts <- ts(AccidentMonthly.df$InvolvingBicycle, start = c(AccidentMonthly.df$Year[1], AccidentMonthly.df$Month[1]), frequency = 12)
+InvolvingMotorcycleMonthly.ts <- ts(AccidentMonthly.df$InvolvingMotorcycle, start = c(AccidentMonthly.df$Year[1], AccidentMonthly.df$Month[1]), frequency = 12)
 
 # decompose time series objects
 InvolvingBicycleMonthly.ts.m <- decompose(InvolvingBicycleMonthly.ts, type = 'multiplicative')
-plot(InvolvingBicycleMonthly.ts.m)  
+plot(InvolvingBicycleMonthly.ts.m)
 
 InvolvingMotorcycleMonthly.ts.a <- decompose(InvolvingMotorcycleMonthly.ts, type = 'additive')
-plot(InvolvingMotorcycleMonthly.ts.a)  
+plot(InvolvingMotorcycleMonthly.ts.a)
 ```
+
 ## Analyse und Fazit
-Grundsätzlich entspricht die Zeitreihenanalyse den Erwartungen, welche man aufgrund der Saisonalität von Unfällen mit Fahrrädern und Motorrädern haben könnte: In den wärmeren Monaten, insbesonderen an warmen Tagen (starke Korrelation zwischen Temperatur und Anzahl Velo- und Motorradunfällen), sind die Unfallzahlen mit Velos und Motorrädern stark erhöht gegenüber den Wintermonaten. Die Zahl der Velounfälle scheint auch mit einem gewissen Trend zu steigen. 
 
-Zudem scheint eine negative Korrelation mit Regentagen und Unfällen mit Velos und Motorrädern zu bestehen, was ebenfalls Sinn machen würde. 
+Grundsätzlich entspricht die Zeitreihenanalyse den Erwartungen, welche man aufgrund der Saisonalität von Unfällen mit Fahrrädern und Motorrädern haben könnte: In den wärmeren Monaten, insbesonderen an warmen Tagen (starke Korrelation zwischen Temperatur und Anzahl Velo- und Motorradunfällen), sind die Unfallzahlen mit Velos und Motorrädern stark erhöht gegenüber den Wintermonaten. Die Zahl der Velounfälle scheint auch mit einem gewissen Trend zu steigen.
 
+Zudem scheint eine negative Korrelation mit Regentagen und Unfällen mit Velos und Motorrädern zu bestehen, was ebenfalls Sinn machen würde.
 
-Im Allgemeinen sieht man nichts Aussergewöhnliches als das was man aufgrund der Jahreszeiten sowieso vermuten würde.
+Im Allgemeinen sieht man nichts Aussergewöhnliches, als das was man aufgrund der Jahreszeiten sowieso vermuten würde.
 
